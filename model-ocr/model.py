@@ -11,8 +11,8 @@ from pathlib import Path
 import sys
 
 # Constantes
-IMG_HEIGHT = 100
-IMG_WIDTH = 280
+IMG_HEIGHT = 50  # Reducción de altura a 50px
+IMG_WIDTH = 140  # Ajuste proporcional del ancho
 BATCH_SIZE = 32
 EPOCHS = 30
 CHARS = "0123456789 BCDFGHJKLMNPQRSTVWXYZ"  # Caracteres permitidos (dígitos + espacio + letras sin vocales)

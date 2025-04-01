@@ -7,13 +7,14 @@ import sys
 
 def generar_matricula(texto="1234 ABC", output_dir="PIA/Proyecto2-Parquing/model-ocr/dades"):
     # Genera la imagen base de la matrícula
-    img = Image.new('RGB', (280, 100), color=(255, 255, 255))
+    # Reducimos la altura a 50px y ajustamos el ancho proporcionalmente
+    img = Image.new('RGB', (140, 50), color=(255, 255, 255))
     d = ImageDraw.Draw(img)
     try:
-        font = ImageFont.truetype("arial.ttf", 50)  # Fuente similar a las matrículas reales
+        font = ImageFont.truetype("arial.ttf", 25)  # Reducimos tamaño de fuente para la nueva resolución
     except IOError:
         font = ImageFont.load_default()
-    d.text((20, 20), texto, fill=(0, 0, 0), font=font)
+    d.text((10, 10), texto, fill=(0, 0, 0), font=font)
     return img
 
 def aplicar_augmentaciones(img):
@@ -145,7 +146,7 @@ def mostrar_menu():
         if opcion == "1":
             try:
                 num_samples = int(input("Número de matrículas base a generar [10]: ") or "10")
-                augmentations = int(input("Número de augmentaciones por matrícula [5]: ") or "5")
+                augmentations = int(input("Número de augmentaciones por matrícula [4]: ") or "5")
                 generar_datos(num_samples, augmentations)
             except ValueError:
                 print("❌ Por favor, introduce números válidos.")

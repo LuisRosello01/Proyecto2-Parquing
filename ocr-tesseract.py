@@ -34,6 +34,7 @@ def extraure_text_de_matricula(imatge_retallada):
     
     # Apliquem un llindar per separa millor el text del fons
     _, binaria1 = cv2.threshold(imatge_retallada, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    binaria1 = cv2.medianBlur(binaria1, 3)  # Aplica un filtre de mediana per reduir soroll
     
     # Prova alternativa amb threshold adaptatiu
     binaria2 = cv2.adaptiveThreshold(imatge_retallada, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
@@ -110,7 +111,7 @@ def extraure_text_de_matricula(imatge_retallada):
         return "No s'ha pogut detectar text"
 
 def main():
-    imatge = cv2.imread("matricula2.jpg")
+    imatge = cv2.imread("matricula2-1.png")
     if imatge is None:
         print("Imatge no trobada!")
         return
@@ -122,7 +123,7 @@ def main():
     imatge_gran = augmentar_resolucio(imatge_millorada, 3.0)
     
     # Guardar imatge processada per inspeccionar-la
-    #cv2.imwrite("imatge_processada.jpg", imatge_gran)
+    cv2.imwrite("imatge_processada.jpg", imatge_gran)
     
     # Mostra la imatge processada
     #cv2.imshow("Imatge Original", imatge)

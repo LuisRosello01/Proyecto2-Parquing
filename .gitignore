@@ -1,3 +1,6 @@
 .venv
 matriculas
-model-ocr/dades
+model-ocr-matricula/dades
+model-ocr-caracters/dades
+model-ocr-matricula/mejor_modelo_ocr.h5
+model-ocr-matricula/modelo_ocr.h5

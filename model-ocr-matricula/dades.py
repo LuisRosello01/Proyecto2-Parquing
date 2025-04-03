@@ -10,14 +10,15 @@ FUENTE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "
 
 def generar_matricula(texto="1234 ABC", output_dir="PIA/Proyecto2-Parquing/model-ocr/dades"):
     # Genera la imagen base de la matrícula
-    img = Image.new('RGB', (280, 100), color=(255, 255, 255))
+    # Reducimos la altura a 50px y ajustamos el ancho proporcionalmente
+    img = Image.new('RGB', (140, 50), color=(255, 255, 255))
     d = ImageDraw.Draw(img)
     try:
         font = ImageFont.truetype(FUENTE_PATH, 50)  # Usamos la fuente DIN1451 similar a las matrículas reales
     except IOError:
         print(f"⚠️ No se pudo cargar la fuente {FUENTE_PATH}, usando fuente por defecto")
         font = ImageFont.load_default()
-    d.text((20, 20), texto, fill=(0, 0, 0), font=font)
+    d.text((10, 10), texto, fill=(0, 0, 0), font=font)
     return img
 
 def aplicar_augmentaciones(img):
@@ -149,7 +150,7 @@ def mostrar_menu():
         if opcion == "1":
             try:
                 num_samples = int(input("Número de matrículas base a generar [10]: ") or "10")
-                augmentations = int(input("Número de augmentaciones por matrícula [5]: ") or "5")
+                augmentations = int(input("Número de augmentaciones por matrícula [4]: ") or "5")
                 generar_datos(num_samples, augmentations)
             except ValueError:
                 print("❌ Por favor, introduce números válidos.")

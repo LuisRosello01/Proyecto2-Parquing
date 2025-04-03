@@ -1,4 +1,5 @@
 .venv
+.conda
 matriculas
 model-ocr-matricula/dades
 model-ocr-caracters/dades

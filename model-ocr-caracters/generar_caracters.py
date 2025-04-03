@@ -9,22 +9,53 @@ import cv2  # Añadimos opencv para el nuevo método
 # Definir la ruta de la fuente usando os.path para mayor compatibilidad
 FUENTE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "DIN1451-36breit.ttf")
 
+# Definir una fuente adicional para el dígito "0" - usaremos una sin diagonal
+# Varias opciones: Arial, Verdana o cualquier otra fuente sans-serif
+FUENTE_CERO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "arial.ttf")
+
+# Definir una fuente para la letra "I" que tenga serifs o trazos horizontales
+FUENTE_I_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "times.ttf")
+
 # Constantes para el tamaño de entrada de las imágenes sintéticas
 INPUT_WIDTH = 200
 INPUT_HEIGHT = 50
 
 def generar_caracter(caracter="A", output_dir="dades"):
     """Genera una imagen base con un solo carácter."""
-    # Crea una imagen base con fondo blanco
-    img = Image.new('RGB', (100, 100), color=(255, 255, 255))
+    # Crear imagen más grande para luego recortarla exactamente al carácter
+    img = Image.new('L', (64, 64), color=255)
     d = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype(FUENTE_PATH, 60)  # Usamos la fuente DIN1451
-    except IOError:
-        print(f"⚠️ No se pudo cargar la fuente {FUENTE_PATH}, usando fuente por defecto")
-        font = ImageFont.load_default()
     
-    # Centrar el carácter en la imagen
+    # Seleccionar fuente según el carácter
+    if caracter == "0":
+        try:
+            # Intentar usar una fuente que tenga un 0 más rectangular
+            font = ImageFont.truetype(FUENTE_CERO_PATH, 40)
+        except IOError:
+            # Si no se puede cargar la fuente especial, usar la fuente normal
+            try:
+                font = ImageFont.truetype(FUENTE_PATH, 40)
+            except IOError:
+                font = ImageFont.load_default()
+    elif caracter == "I":
+        try:
+            # Usar una fuente con serifs para la letra I
+            font = ImageFont.truetype(FUENTE_I_PATH, 40)
+        except IOError:
+            # Si no se puede cargar la fuente especial, crear una I modificada
+            try:
+                font = ImageFont.truetype(FUENTE_PATH, 40)
+            except IOError:
+                font = ImageFont.load_default()
+    else:
+        # Para cualquier otro carácter, usar la fuente normal
+        try:
+            font = ImageFont.truetype(FUENTE_PATH, 40)
+        except IOError:
+            print(f"⚠️ No se pudo cargar la fuente {FUENTE_PATH}, usando fuente por defecto")
+            font = ImageFont.load_default()
+    
+    # Obtenemos dimensiones del texto
     try:
         # Para versiones más nuevas de Pillow
         bbox = font.getbbox(caracter)
@@ -34,22 +65,87 @@ def generar_caracter(caracter="A", output_dir="dades"):
         # Para versiones anteriores de Pillow
         text_width, text_height = font.getsize(caracter)
     
-    position = ((100-text_width)//2, (100-text_height)//4)
+    # Centrar el carácter en la imagen
+    position = ((64-text_width)//2, (64-text_height)//2)
     
     # Dibujar el carácter
-    d.text(position, caracter, fill=(0, 0, 0), font=font)
+    d.text(position, caracter, fill=0, font=font)
+    
+    # Si es una I y la fuente especial no está disponible, modificar manualmente
+    if caracter == "I" and font != ImageFont.truetype(FUENTE_I_PATH, 40):
+        # Encontrar el bounding box de la I
+        img_array = np.array(img)
+        rows = np.any(img_array < 255, axis=1)
+        cols = np.any(img_array < 255, axis=0)
+        
+        if np.any(rows) and np.any(cols):
+            y_min, y_max = np.where(rows)[0][[0, -1]]
+            x_min, x_max = np.where(cols)[0][[0, -1]]
+            
+            # Añadir trazos horizontales arriba y abajo para simular una I con serifs
+            line_width = int((x_max - x_min) * 2.5)  # Línea horizontal más ancha que la vertical
+            center_x = (x_min + x_max) // 2
+            start_x = max(0, center_x - line_width // 2)
+            end_x = min(img.width - 1, center_x + line_width // 2)
+            
+            # Trazar línea superior
+            for x in range(start_x, end_x + 1):
+                for y in range(y_min, y_min + 3):  # Grosor de 3 píxeles
+                    if 0 <= y < img.height and 0 <= x < img.width:
+                        img_array[y, x] = 0
+            
+            # Trazar línea inferior
+            for x in range(start_x, end_x + 1):
+                for y in range(y_max - 2, y_max + 1):  # Grosor de 3 píxeles
+                    if 0 <= y < img.height and 0 <= x < img.width:
+                        img_array[y, x] = 0
+            
+            # Actualizar la imagen
+            img = Image.fromarray(img_array)
+    
+    # Recortar la imagen al área exacta del carácter (con un pequeño margen)
+    if caracter != " ":  # Evitar problemas con espacios
+        # Encontrar el bounding box real del carácter en la imagen
+        img_array = np.array(img)
+        rows = np.any(img_array < 255, axis=1)
+        cols = np.any(img_array < 255, axis=0)
+        
+        if np.any(rows) and np.any(cols):  # Asegurarse de que hay contenido visible
+            y_min, y_max = np.where(rows)[0][[0, -1]]
+            x_min, x_max = np.where(cols)[0][[0, -1]]
+            
+            # Añadir un pequeño margen (2 píxeles)
+            margin = 6
+            y_min = max(0, y_min - margin)
+            y_max = min(img.height - 1, y_max + margin)
+            x_min = max(0, x_min - margin)
+            x_max = min(img.width - 1, x_max + margin)
+            
+            # Recortar la imagen
+            img = img.crop((x_min, y_min, x_max + 1, y_max + 1))
+    
+    # Redimensionar a 32x32 para tamaño final estándar
+    img = img.resize((32, 32), Image.BICUBIC)
+    
     return img
 
 def aplicar_augmentaciones(img):
     """Aplica varias transformaciones y filtros a la imagen."""
+    # Generamos una imagen de tamaño aleatorio para luego redimensionarla
+    # Reducimos el rango de tamaños a valores más conservadores
+    random_size = random.choice([28, 32, 36])  # Reducido desde [24, 28, 32, 36, 40, 48]
+    if img.size != (random_size, random_size):
+        img = img.resize((random_size, random_size), Image.BICUBIC)
+    
     width, height = img.size
-    padding = int(max(width, height) * 0.3)  # 30% de padding para permitir rotaciones más agresivas
-    padded_img = Image.new('RGB', (width + 2*padding, height + 2*padding), color=(255, 255, 255))
+    # Reducimos el padding para permitir rotaciones menos agresivas
+    padding = int(max(width, height) * 0.2)  # Reducido de 0.3 (30%) a 0.2 (20%)
+    padded_img = Image.new('L', (width + 2*padding, height + 2*padding), color=255)
     padded_img.paste(img, (padding, padding))
     img = padded_img
 
-    # Rotación aleatoria con ángulo más agresivo
-    angle = random.uniform(-30, 30)  # Aumentamos el rango de rotación
+    # Rotación aleatoria con ángulo menos agresivo
+    angle = random.uniform(-15, 15)  # Reducido de [-30, 30] a [-15, 15]
     img = img.rotate(angle, resample=Image.BICUBIC, expand=False)
 
     # Recortar al tamaño original después de la rotación
@@ -61,17 +157,17 @@ def aplicar_augmentaciones(img):
         center_y + height // 2
     ))
 
-    # Transformación de perspectiva más agresiva
+    # Transformación de perspectiva menos agresiva
     if random.choice([True, False]):
         width, height = img.size
         
-        # Define distorsión máxima (20% de la dimensión)
-        max_shift = min(width, height) * 0.2  # Aumentamos la distorsión
+        # Define distorsión máxima (reducida al 10% de la dimensión)
+        max_shift = min(width, height) * 0.1  # Reducido de 0.2 a 0.1
         
         # Esquinas originales
         corners = [(0, 0), (width, 0), (width, height), (0, height)]
         
-        # Nuevas esquinas con desplazamientos aleatorios más pronunciados
+        # Nuevas esquinas con desplazamientos aleatorios menos pronunciados
         new_corners = [
             (random.uniform(0, max_shift), random.uniform(0, max_shift)),
             (width - random.uniform(0, max_shift), random.uniform(0, max_shift)),
@@ -95,33 +191,54 @@ def aplicar_augmentaciones(img):
             fill=1
         )
 
-    # Desenfoque gaussiano más pronunciado
+    # Desenfoque gaussiano menos pronunciado
     if random.choice([True, False]):
-        img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0.5, 2.0)))  # Mayor rango de desenfoque
+        img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0.3, 0.7)))  # Reducido de [0.5, 1.0] a [0.3, 0.7]
     
-    # Ajuste de contraste y brillo más extremo
+    # Ajuste de contraste y brillo menos extremo
     if random.choice([True, False]):
         enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(random.uniform(0.5, 1.5))  # Mayor rango de contraste
+        img = enhancer.enhance(random.uniform(0.7, 1.2))  # Cambiado de [0.5, 1.0] a [0.7, 1.2]
         enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(random.uniform(0.5, 1.5))  # Mayor rango de brillo
+        img = enhancer.enhance(random.uniform(0.7, 1.2))  # Cambiado de [0.5, 1.0] a [0.7, 1.2]
     
-    # Añadir ruido gaussiano más pronunciado
+    # Añadir ruido gaussiano menos pronunciado
     if random.choice([True, False]):
         np_img = np.array(img).astype(np.float32)
-        noise = np.random.normal(0, 15, np_img.shape)  # Mayor intensidad de ruido
+        noise = np.random.normal(0, 8, np_img.shape)  # Reducido de 15 a 8
         np_img = np.clip(np_img + noise, 0, 255).astype(np.uint8)
         img = Image.fromarray(np_img)
     
-    # Añadir posibilidad de escala aleatoria (estiramiento/compresión)
+    # Añadir posibilidad de escala aleatoria menos agresiva
     if random.choice([True, False]):
-        scale_x = random.uniform(0.8, 1.2)  # Escala horizontal
-        scale_y = random.uniform(0.8, 1.2)  # Escala vertical
+        scale_x = random.uniform(0.9, 1.1)  # Reducido de [0.8, 1.2] a [0.9, 1.1]
+        scale_y = random.uniform(0.9, 1.1)  # Reducido de [0.8, 1.2] a [0.9, 1.1]
         new_width = int(width * scale_x)
         new_height = int(height * scale_y)
         img = img.resize((new_width, new_height), Image.BICUBIC)
         # Volver al tamaño original después de estirar/comprimir
         img = img.resize((width, height), Image.BICUBIC)
+    
+    # Al final de todas las transformaciones, asegurar que el carácter ocupa toda la imagen
+    # Encontrar el bounding box real del contenido
+    img_array = np.array(img)
+    rows = np.any(img_array < 255, axis=1)
+    cols = np.any(img_array < 255, axis=0)
+    
+    # Solo ajustar si hay contenido visible
+    if np.any(rows) and np.any(cols):
+        y_min, y_max = np.where(rows)[0][[0, -1]]
+        x_min, x_max = np.where(cols)[0][[0, -1]]
+        
+        # Recortar al área exacta del contenido
+        if x_min < x_max and y_min < y_max:
+            img = img.crop((x_min, y_min, x_max + 1, y_max + 1))
+            
+            # Redimensionar a 32x32
+            img = img.resize((32, 32), Image.BICUBIC)
+    else:
+        # Si no hay contenido visible, simplemente redimensionar
+        img = img.resize((32, 32), Image.BICUBIC)
     
     return img
 
@@ -137,6 +254,10 @@ def guardar_imagen(img, caracter, idx, label=None):
     # Si el directorio no existe, lo crea
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    
+    # Asegurar que la imagen tiene el tamaño correcto antes de guardar
+    if img.size != (32, 32):
+        img = img.resize((32, 32), Image.BICUBIC)
     
     # Guarda la imagen
     img.save(f"{output_dir}/caracter_{caracter}_{idx}.jpg")
@@ -185,7 +306,7 @@ def generar_datos(num_augmentations=10, organizar_por_clase=True):
     print(f"✅ Se han generado {total_generadas} imágenes correctamente.")
 
 def create_synthetic_dataset(base_dir, num_samples=5000):
-    """Crea conjunts de dades sintètics a partir de caràcters individuals"""
+    """Crea conjunts de dades sintètics a partir de caràcters individuales"""
     X = []  # imatges
     y = []  # etiquetes (text)
     
@@ -221,18 +342,30 @@ def create_synthetic_dataset(base_dir, num_samples=5000):
             
             try:
                 img_path = os.path.join(char_dir, random.choice(img_files))
-                img = cv2.imread(img_path)
+                img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)  # Cargar directamente en escala de grises
                 
                 if img is None:
                     continue  # Skip if image couldn't be loaded
                 
-                # Preprocesa la imatge individual
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                img = cv2.resize(img, (25, 50))  # Mida consistent per caràcter
+                # Asegurar que solo tenemos el carácter, sin espacios blancos
+                if img.shape[0] != 32 or img.shape[1] != 32:
+                    # Encontrar el bounding box del carácter
+                    rows = np.any(img < 255, axis=1)
+                    cols = np.any(img < 255, axis=0)
+                    
+                    if np.any(rows) and np.any(cols):
+                        y_min, y_max = np.where(rows)[0][[0, -1]]
+                        x_min, x_max = np.where(cols)[0][[0, -1]]
+                        
+                        # Recortar al contenido
+                        img = img[y_min:y_max+1, x_min:x_max+1]
                 
-                # Afegeix variacions aleatòries (si vols)
+                # Redimensionar a tamaño consistente para secuencia
+                img = cv2.resize(img, (25, 50))
+                
+                # Afegeix variacions aleatòries (menos agresivas)
                 if random.random() > 0.5:
-                    angle = random.uniform(-5, 5)
+                    angle = random.uniform(-3, 3)  # Reducido de [-5, 5] a [-3, 3]
                     M = cv2.getRotationMatrix2D((12, 25), angle, 1)
                     img = cv2.warpAffine(img, M, (25, 50))
                 
@@ -259,20 +392,20 @@ def create_synthetic_dataset(base_dir, num_samples=5000):
                 seq_img[:h, x_offset:x_offset+w] = img
                 x_offset += w + 4  # 4px de espacio fijo entre caracteres
         
-        # Aplica transformacions globals
+        # Aplica transformacions globals (menos agresivas)
         # Rotació lleugera
-        angle = random.uniform(-10, 10)
+        angle = random.uniform(-5, 5)  # Reducido de [-10, 10] a [-5, 5]
         M = cv2.getRotationMatrix2D((total_width//2, 25), angle, 1)
         seq_img = cv2.warpAffine(seq_img, M, (total_width, 50), borderValue=255)
         
-        # Perspectiva aleatòria
-        if random.random() > 0.7:
+        # Perspectiva aleatòria (menos agresiva y menos frecuente)
+        if random.random() > 0.8:  # Reducido de 0.7 a 0.8 (menos frecuente)
             pts1 = np.float32([[0,0], [total_width,0], [0,50], [total_width,50]])
             pts2 = np.float32([
-                [random.randint(0,10), random.randint(0,5)], 
-                [total_width-random.randint(0,10), random.randint(0,5)],
-                [random.randint(0,10), 50-random.randint(0,5)],
-                [total_width-random.randint(0,10), 50-random.randint(0,5)]
+                [random.randint(0,5), random.randint(0,3)],  # Reducidos de 10/5 a 5/3
+                [total_width-random.randint(0,5), random.randint(0,3)],
+                [random.randint(0,5), 50-random.randint(0,3)],
+                [total_width-random.randint(0,5), 50-random.randint(0,3)]
             ])
             M = cv2.getPerspectiveTransform(pts1, pts2)
             seq_img = cv2.warpPerspective(seq_img, M, (total_width, 50), borderValue=255)
@@ -284,9 +417,9 @@ def create_synthetic_dataset(base_dir, num_samples=5000):
         seq_img = seq_img / 255.0
         seq_img = np.expand_dims(seq_img, axis=-1)
         
-        # Afegeix soroll
+        # Afegeix soroll (menos intenso)
         if random.random() > 0.8:
-            noise = np.random.randn(INPUT_HEIGHT, INPUT_WIDTH, 1) * 0.1
+            noise = np.random.randn(INPUT_HEIGHT, INPUT_WIDTH, 1) * 0.05  # Reducido de 0.1 a 0.05
             seq_img = np.clip(seq_img + noise, 0, 1)
         
         # Afegeix la imatge i l'etiqueta als conjunts de dades

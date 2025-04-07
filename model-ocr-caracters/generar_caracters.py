@@ -7,14 +7,17 @@ import sys
 import cv2  # Añadimos opencv para el nuevo método
 
 # Definir la ruta de la fuente usando os.path para mayor compatibilidad
-FUENTE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "DIN1451-36breit.ttf")
+FUENTE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
 
 # Definir una fuente adicional para el dígito "0" - usaremos una sin diagonal
 # Varias opciones: Arial, Verdana o cualquier otra fuente sans-serif
-FUENTE_CERO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "arial.ttf")
+FUENTE_CERO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
 
 # Definir una fuente para la letra "I" que tenga serifs o trazos horizontales
-FUENTE_I_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "times.ttf")
+FUENTE_I_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
+
+# Definir una fuente para la letra "G"
+FUENTE_G_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
 
 # Constantes para el tamaño de entrada de las imágenes sintéticas
 INPUT_WIDTH = 200
@@ -43,6 +46,16 @@ def generar_caracter(caracter="A", output_dir="dades"):
             font = ImageFont.truetype(FUENTE_I_PATH, 40)
         except IOError:
             # Si no se puede cargar la fuente especial, crear una I modificada
+            try:
+                font = ImageFont.truetype(FUENTE_PATH, 40)
+            except IOError:
+                font = ImageFont.load_default()
+    elif caracter == "G":
+        try:
+            # Usar la fuente específica para la letra G
+            font = ImageFont.truetype(FUENTE_G_PATH, 40)
+        except IOError:
+            # Si no se puede cargar la fuente especial, usar la fuente normal
             try:
                 font = ImageFont.truetype(FUENTE_PATH, 40)
             except IOError:

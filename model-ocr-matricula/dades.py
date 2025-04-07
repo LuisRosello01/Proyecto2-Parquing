@@ -150,7 +150,7 @@ def mostrar_menu():
         if opcion == "1":
             try:
                 num_samples = int(input("Número de matrículas base a generar [10]: ") or "10")
-                augmentations = int(input("Número de augmentaciones por matrícula [4]: ") or "5")
+                augmentations = int(input("Número de augmentaciones por matrícula [5]: ") or "5")
                 generar_datos(num_samples, augmentations)
             except ValueError:
                 print("❌ Por favor, introduce números válidos.")

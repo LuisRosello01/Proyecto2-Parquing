@@ -60,14 +60,18 @@ def detectar_matricula():
 @app.route('/predict', methods=['POST'])
 def predict():
     # Verificar si se envió un archivo
-    if 'image' not in request.files:
+    if 'image' in request.files:
+        # Leer la imagen enviada directamente en memoria
+        file = request.files['image']
+        file_stream = file.read()
+        np_image = np.frombuffer(file_stream, np.uint8)
+        image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+    elif os.path.exists(os.path.join(os.path.dirname(__file__), 'temp_matricula.jpg')):
+        # Usar la imagen temporal guardada previamente
+        image_path = os.path.join(os.path.dirname(__file__), 'temp_matricula.jpg')
+        image = cv2.imread(image_path)
+    else:
         return jsonify({'error': 'No se envió ninguna imagen'}), 400
-
-    # Leer la imagen enviada directamente en memoria
-    file = request.files['image']
-    file_stream = file.read()
-    np_image = np.frombuffer(file_stream, np.uint8)
-    image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
 
     try:
         # Segmentar caracteres de la matrícula
@@ -82,7 +86,7 @@ def predict():
             predicted_class = np.argmax(prediction)
             predicted_character = valid_characters[predicted_class]
             confidence = np.max(prediction) * 100
-            if confidence > 40:
+            if confidence > 35:
                 predictions.append({
                     'character': predicted_character,
                     'confidence': f'{confidence:.2f}%'

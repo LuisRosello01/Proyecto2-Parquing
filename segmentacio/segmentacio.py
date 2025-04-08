@@ -56,23 +56,30 @@ def segmentar_matricula(image):
     bottomhat = cv2.morphologyEx(warped_gray, cv2.MORPH_BLACKHAT, bottomhat_kernel)
     _, bottomhat_thresh = cv2.threshold(bottomhat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    # Noise removal
-    erosion_kernel = np.ones((4, 3), np.uint8)
-    eroded_image = cv2.erode(bottomhat_thresh, erosion_kernel, iterations=1)
-    opening_kernel = np.ones((2, 1), np.uint8)
-    cleaned_image = cv2.morphologyEx(eroded_image, cv2.MORPH_OPEN, opening_kernel)
-    contours, _ = cv2.findContours(cleaned_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    mask = np.zeros_like(cleaned_image)
-    for contour in contours:
+    # Remove small noise points
+    contours_noise, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+   # Filtrar contornos pequeños que representan ruido
+    for contour in contours_noise:
         area = cv2.contourArea(contour)
-        if area > 10:
-            cv2.drawContours(mask, [contour], -1, 255, thickness=cv2.FILLED)
-    cleaned_image = cv2.bitwise_and(cleaned_image, mask)
-    dilation_kernel = np.ones((3, 4), np.uint8)
-    dilated = cv2.dilate(cleaned_image, dilation_kernel, iterations=1)
+        if 100 <= area <= 200:  # Ajustar el umbral para puntos medianos
+            # Noise removal
+            bottomhat_thresh = eliminar_ruido(bottomhat_thresh)
+            
+    # Save the bottomhat_thresh image for debugging purposes
+    #cv2.imwrite("bottomhat_thresh.jpg", bottomhat_thresh)
 
     # Character segmentation
-    contours_cleaned, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours_cleaned, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Visualize the image with contours
+    visualization = cv2.cvtColor(bottomhat_thresh, cv2.COLOR_GRAY2BGR)
+    for contour in contours_cleaned:
+        x, y, w, h = cv2.boundingRect(contour)
+        cv2.rectangle(visualization, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    # Save or display the visualization
+    #cv2.imshow("Contours Visualization", visualization)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
     sorted_contours = sorted(contours_cleaned, key=lambda c: cv2.boundingRect(c)[0])
     character_images = []
     margin = 4
@@ -90,10 +97,27 @@ def segmentar_matricula(image):
 
     return character_images
 
+def eliminar_ruido(bottomhat_thresh):
+    erosion_kernel = np.ones((4, 3), np.uint8)
+    eroded_image = cv2.erode(bottomhat_thresh, erosion_kernel, iterations=1)
+    opening_kernel = np.ones((2, 1), np.uint8)
+    cleaned_image = cv2.morphologyEx(eroded_image, cv2.MORPH_OPEN, opening_kernel)
+    contours, _ = cv2.findContours(cleaned_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    mask = np.zeros_like(cleaned_image)
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area > 10:
+            cv2.drawContours(mask, [contour], -1, 255, thickness=cv2.FILLED)
+    cleaned_image = cv2.bitwise_and(cleaned_image, mask)
+    dilation_kernel = np.ones((3, 4), np.uint8)
+    dilated = cv2.dilate(cleaned_image, dilation_kernel, iterations=1)
+    return dilated
+
 if __name__ == "__main__":
     # Example usage
-    image_path = "matricula2.jpg"
-    characters = segmentar_matricula(image_path)
+    image_path = "flask/temp_matricula.jpg"
+    image = cv2.imread(image_path)
+    characters = segmentar_matricula(image)
     for i, char in enumerate(characters):
         cv2.imshow(f'Character {i+1}', char)
     cv2.waitKey(0)

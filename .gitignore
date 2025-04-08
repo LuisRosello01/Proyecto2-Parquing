@@ -1,5 +1,7 @@
 .venv
 .conda
+.vscode
+app/__pycache__
 matriculas
 backup-caracters-sintetics
 model-ocr-matricula/dades

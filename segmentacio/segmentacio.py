@@ -1,14 +1,13 @@
 import cv2
 import numpy as np
 
-def segment_license_plate(image_path):
-    # Load the image
-    license_plate_image = cv2.imread(image_path)
-    if license_plate_image is None:
-        raise FileNotFoundError(f"Image not found at path: {image_path}")
+def segmentar_matricula(image):
+    # Verificar que la imagen no sea None
+    if image is None:
+        raise ValueError("La imagen proporcionada es inválida o está vacía.")
 
     # Resize the image
-    resized_image = cv2.resize(license_plate_image, (400, 100))
+    resized_image = cv2.resize(image, (400, 100))
 
     # Convert to grayscale
     grayscale_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
@@ -94,7 +93,7 @@ def segment_license_plate(image_path):
 if __name__ == "__main__":
     # Example usage
     image_path = "matricula2.jpg"
-    characters = segment_license_plate(image_path)
+    characters = segmentar_matricula(image_path)
     for i, char in enumerate(characters):
         cv2.imshow(f'Character {i+1}', char)
     cv2.waitKey(0)

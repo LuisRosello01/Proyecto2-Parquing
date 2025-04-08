@@ -4,8 +4,8 @@
 app/__pycache__
 matriculas
 backup-caracters-sintetics
-model-ocr-matricula/dades
-model-ocr-matricula/mejor_modelo_ocr.h5
-model-ocr-matricula/modelo_ocr.h5
-model-ocr-caracters/dades
-model-ocr-caracters/dataset_sintetico
+/ocr/model-ocr-matricula/dades
+/ocr/model-ocr-matricula/mejor_modelo_ocr.h5
+/ocr/model-ocr-matricula/modelo_ocr.h5
+/ocr/model-ocr-caracters/dades
+/ocr/model-ocr-caracters/dataset_sintetico

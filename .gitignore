@@ -9,3 +9,4 @@ backup-caracters-sintetics
 /ocr/model-ocr-matricula/modelo_ocr.h5
 /ocr/model-ocr-caracters/dades
 /ocr/model-ocr-caracters/dataset_sintetico
+segmentacio\__pycache__

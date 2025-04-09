@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Parking - Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-parking me-2"></i>
+                Sistema de Parking
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-tab="main">
+                            <i class="fas fa-home me-1"></i> Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-tab="vehicles">
+                            <i class="fas fa-car me-1"></i> Vehículos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-tab="settings">
+                            <i class="fas fa-cog me-1"></i> Configuración
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Tab: Main Dashboard -->
+        <div class="tab-content" id="mainTab">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Entrada de Vehículos
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="entryImageInput" accept="image/*">
+                                    <button class="btn btn-primary" id="recognizeEntryBtn">
+                                        <i class="fas fa-camera me-1"></i> Reconocer
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="entryResults" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <i class="fas fa-sign-out-alt me-2"></i>
+                            Salida de Vehículos
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="exitImageInput" accept="image/*">
+                                    <button class="btn btn-danger" id="recognizeExitBtn">
+                                        <i class="fas fa-camera me-1"></i> Reconocer
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="exitResults" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <i class="fas fa-money-bill-wave me-2"></i>
+                            Procesar Pago
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="ticketIdInput" placeholder="ID del ticket">
+                            </div>
+                            <button class="btn btn-success" id="processPaymentBtn">
+                                <i class="fas fa-check me-1"></i> Procesar Pago
+                            </button>
+                            <div id="paymentResults" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Estadísticas
+                        </div>
+                        <div class="card-body" id="statisticsPanel">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando estadísticas...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Vehicles List -->
+        <div class="tab-content d-none" id="vehiclesTab">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-car me-2"></i>
+                    Lista de Vehículos
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <select class="form-select" id="vehicleStatusFilter">
+                                <option value="all">Todos los vehículos</option>
+                                <option value="in">En parking</option>
+                                <option value="out">Fuera del parking</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="vehiclePaidFilter">
+                                <option value="all">Todos los pagos</option>
+                                <option value="true">Pagado</option>
+                                <option value="false">Pendiente de pago</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-primary w-100" id="applyFiltersBtn">
+                                <i class="fas fa-filter me-1"></i> Aplicar Filtros
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Matrícula</th>
+                                    <th>Ticket</th>
+                                    <th>Entrada</th>
+                                    <th>Salida</th>
+                                    <th>Duración</th>
+                                    <th>Importe</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vehiclesTableBody">
+                                <!-- This will be filled by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-center mt-4">
+                        <nav aria-label="Navegación de páginas">
+                            <ul class="pagination" id="vehiclesPagination">
+                                <!-- This will be filled by JavaScript -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Settings -->
+        <div class="tab-content d-none" id="settingsTab">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-cog me-2"></i>
+                    Configuración del Sistema
+                </div>
+                <div class="card-body">
+                    <form id="configForm">
+                        <div class="mb-3">
+                            <label for="ratePerHourInput" class="form-label">Tarifa por hora (€)</label>
+                            <input type="number" class="form-control" id="ratePerHourInput" min="0" step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label for="maxCapacityInput" class="form-label">Capacidad máxima de vehículos</label>
+                            <input type="number" class="form-control" id="maxCapacityInput" min="1" step="1">
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Guardar Configuración
+                        </button>
+                    </form>
+                    <div id="configResults" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-3 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">Sistema de Gestión de Parking con Reconocimiento de Matrículas &copy; 2025</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

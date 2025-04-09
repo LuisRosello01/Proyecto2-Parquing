@@ -9,15 +9,8 @@ import cv2  # Añadimos opencv para el nuevo método
 # Definir la ruta de la fuente usando os.path para mayor compatibilidad
 FUENTE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
 
-# Definir una fuente adicional para el dígito "0" - usaremos una sin diagonal
-# Varias opciones: Arial, Verdana o cualquier otra fuente sans-serif
-FUENTE_CERO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
-
-# Definir una fuente para la letra "I" que tenga serifs o trazos horizontales
-FUENTE_I_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
-
-# Definir una fuente para la letra "G"
-FUENTE_G_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "font", "din1451alt G.ttf")
+# Definir una fuente para la letra "O" que sea redonda
+FUENTE_O_PATH = "arialbd.ttf"
 
 # Constantes para el tamaño de entrada de las imágenes sintéticas
 INPUT_WIDTH = 200
@@ -30,30 +23,10 @@ def generar_caracter(caracter="A", output_dir="dades"):
     d = ImageDraw.Draw(img)
     
     # Seleccionar fuente según el carácter
-    if caracter == "0":
+    if caracter == "O":
         try:
-            # Intentar usar una fuente que tenga un 0 más rectangular
-            font = ImageFont.truetype(FUENTE_CERO_PATH, 40)
-        except IOError:
-            # Si no se puede cargar la fuente especial, usar la fuente normal
-            try:
-                font = ImageFont.truetype(FUENTE_PATH, 40)
-            except IOError:
-                font = ImageFont.load_default()
-    elif caracter == "I":
-        try:
-            # Usar una fuente con serifs para la letra I
-            font = ImageFont.truetype(FUENTE_I_PATH, 40)
-        except IOError:
-            # Si no se puede cargar la fuente especial, crear una I modificada
-            try:
-                font = ImageFont.truetype(FUENTE_PATH, 40)
-            except IOError:
-                font = ImageFont.load_default()
-    elif caracter == "G":
-        try:
-            # Usar la fuente específica para la letra G
-            font = ImageFont.truetype(FUENTE_G_PATH, 40)
+            # Usar una fuente redonda para la letra O
+            font = ImageFont.truetype(FUENTE_O_PATH, 40)
         except IOError:
             # Si no se puede cargar la fuente especial, usar la fuente normal
             try:
@@ -83,38 +56,6 @@ def generar_caracter(caracter="A", output_dir="dades"):
     
     # Dibujar el carácter
     d.text(position, caracter, fill=0, font=font)
-    
-    # Si es una I y la fuente especial no está disponible, modificar manualmente
-    if caracter == "I" and font != ImageFont.truetype(FUENTE_I_PATH, 40):
-        # Encontrar el bounding box de la I
-        img_array = np.array(img)
-        rows = np.any(img_array < 255, axis=1)
-        cols = np.any(img_array < 255, axis=0)
-        
-        if np.any(rows) and np.any(cols):
-            y_min, y_max = np.where(rows)[0][[0, -1]]
-            x_min, x_max = np.where(cols)[0][[0, -1]]
-            
-            # Añadir trazos horizontales arriba y abajo para simular una I con serifs
-            line_width = int((x_max - x_min) * 2.5)  # Línea horizontal más ancha que la vertical
-            center_x = (x_min + x_max) // 2
-            start_x = max(0, center_x - line_width // 2)
-            end_x = min(img.width - 1, center_x + line_width // 2)
-            
-            # Trazar línea superior
-            for x in range(start_x, end_x + 1):
-                for y in range(y_min, y_min + 3):  # Grosor de 3 píxeles
-                    if 0 <= y < img.height and 0 <= x < img.width:
-                        img_array[y, x] = 0
-            
-            # Trazar línea inferior
-            for x in range(start_x, end_x + 1):
-                for y in range(y_max - 2, y_max + 1):  # Grosor de 3 píxeles
-                    if 0 <= y < img.height and 0 <= x < img.width:
-                        img_array[y, x] = 0
-            
-            # Actualizar la imagen
-            img = Image.fromarray(img_array)
     
     # Recortar la imagen al área exacta del carácter (con un pequeño margen)
     if caracter != " ":  # Evitar problemas con espacios

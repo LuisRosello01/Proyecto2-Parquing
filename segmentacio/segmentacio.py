@@ -55,18 +55,24 @@ def segmentar_matricula(image):
     bottomhat_kernel = np.ones((20, 16), np.uint8)
     bottomhat = cv2.morphologyEx(warped_gray, cv2.MORPH_BLACKHAT, bottomhat_kernel)
     _, bottomhat_thresh = cv2.threshold(bottomhat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Use opening morphology to remove small noise
+    # Necessari en algunes imatges
+    opening_kernel = np.ones((2, 1), np.uint8)
+    bottomhat_thresh = cv2.morphologyEx(bottomhat_thresh, cv2.MORPH_OPEN, opening_kernel)
 
     # Remove small noise points
     contours_noise, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
    # Filtrar contornos pequeños que representan ruido
     for contour in contours_noise:
         area = cv2.contourArea(contour)
-        if 100 <= area <= 200:  # Ajustar el umbral para puntos medianos
+        if 150 <= area <= 200:  # Ajustar el umbral para puntos medianos
             # Noise removal
-            bottomhat_thresh = eliminar_ruido(bottomhat_thresh)
+            #bottomhat_thresh = eliminar_ruido(bottomhat_thresh)
+            pass
             
     # Save the bottomhat_thresh image for debugging purposes
-    #cv2.imwrite("bottomhat_thresh.jpg", bottomhat_thresh)
+    cv2.imwrite("bottomhat_thresh.jpg", bottomhat_thresh)
 
     # Character segmentation
     contours_cleaned, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

@@ -176,6 +176,34 @@ input[type="file"]::file-selector-button:hover {
     margin-bottom: 10px;
 }
 
+/* Camera Functionality */
+.camera-container {
+    position: relative;
+    width: 100%;
+    display: none;
+    margin-bottom: 10px;
+}
+
+.camera-container video {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.camera-controls {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.capture-preview {
+    max-width: 100%;
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: none;
+}
+
 /* Ticket Display */
 .ticket {
     border: 1px dashed #aaa;

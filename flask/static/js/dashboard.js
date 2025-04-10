@@ -3,6 +3,277 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabs = document.querySelectorAll('.nav-link');
     const tabContents = document.querySelectorAll('.tab-content');
     
+    // Camera functionality elements
+    const entryCameraToggle = document.getElementById('entryCameraToggle');
+    const entryCameraContainer = document.getElementById('entryCameraContainer');
+    const entryCameraView = document.getElementById('entryCameraView');
+    const entryCaptureBtn = document.getElementById('entryCaptureBtn');
+    const entryCaptureCanvas = document.getElementById('entryCaptureCanvas');
+    const entryCapturePreview = document.getElementById('entryCapturePreview');
+    const entryFileGroup = document.getElementById('entryFileGroup');
+    const recognizeEntryBtn = document.getElementById('recognizeEntryBtn');
+    const entryAutoDetectionToggle = document.getElementById('entryAutoDetectionToggle');
+    
+    const exitCameraToggle = document.getElementById('exitCameraToggle');
+    const exitCameraContainer = document.getElementById('exitCameraContainer');
+    const exitCameraView = document.getElementById('exitCameraView');
+    const exitCaptureBtn = document.getElementById('exitCaptureBtn');
+    const exitCaptureCanvas = document.getElementById('exitCaptureCanvas');
+    const exitCapturePreview = document.getElementById('exitCapturePreview');
+    const exitFileGroup = document.getElementById('exitFileGroup');
+    const recognizeExitBtn = document.getElementById('recognizeExitBtn');
+    const exitAutoDetectionToggle = document.getElementById('exitAutoDetectionToggle');
+    
+    let entryStream = null;
+    let exitStream = null;
+    
+    // Auto detection variables
+    let entryAutoDetectionActive = false;
+    let exitAutoDetectionActive = false;
+    let entryAutoDetectionTimer = null;
+    let exitAutoDetectionTimer = null;
+    let entryProcessingInProgress = false;
+    let exitProcessingInProgress = false;
+    let entryLastDetectionTime = 0;
+    let exitLastDetectionTime = 0;
+    const detectionCooldown = 5000; // 5 seconds cooldown between detections
+    
+    // Set up camera toggles if elements exist
+    if (entryCameraToggle) {
+        entryCameraToggle.addEventListener('change', function() {
+            if (this.checked) {
+                entryCameraContainer.style.display = 'block';
+                entryFileGroup.style.display = 'none';
+                startCamera(entryCameraView, stream => {
+                    entryStream = stream;
+                    
+                    // No longer start auto detection automatically
+                    // Auto detection will only start when the toggle is checked
+                });
+            } else {
+                entryCameraContainer.style.display = 'none';
+                entryFileGroup.style.display = 'flex';
+                stopCamera(entryStream);
+                entryCapturePreview.style.display = 'none';
+                
+                // Stop auto detection if active
+                stopAutoDetection('entry');
+            }
+        });
+    }
+    
+    // Set up auto detection toggles
+    if (entryAutoDetectionToggle) {
+        entryAutoDetectionToggle.addEventListener('change', function() {
+            if (this.checked) {
+                startAutoDetection('entry');
+                document.getElementById('entryResults').innerHTML = 
+                    '<div class="alert alert-info">Detección automática activada. Apunte la cámara hacia una matrícula.</div>';
+            } else {
+                stopAutoDetection('entry');
+                document.getElementById('entryResults').innerHTML = '';
+            }
+        });
+    }
+    
+    if (exitCameraToggle) {
+        exitCameraToggle.addEventListener('change', function() {
+            if (this.checked) {
+                exitCameraContainer.style.display = 'block';
+                exitFileGroup.style.display = 'none';
+                startCamera(exitCameraView, stream => {
+                    exitStream = stream;
+                    
+                    // No longer start auto detection automatically
+                    // Auto detection will only start when the toggle is checked
+                });
+            } else {
+                exitCameraContainer.style.display = 'none';
+                exitFileGroup.style.display = 'flex';
+                stopCamera(exitStream);
+                exitCapturePreview.style.display = 'none';
+                
+                // Stop auto detection if active
+                stopAutoDetection('exit');
+            }
+        });
+    }
+    
+    // Set up auto detection toggles
+    if (exitAutoDetectionToggle) {
+        exitAutoDetectionToggle.addEventListener('change', function() {
+            if (this.checked) {
+                startAutoDetection('exit');
+                document.getElementById('exitResults').innerHTML = 
+                    '<div class="alert alert-info">Detección automática activada. Apunte la cámara hacia una matrícula.</div>';
+            } else {
+                stopAutoDetection('exit');
+                document.getElementById('exitResults').innerHTML = '';
+            }
+        });
+    }
+    
+    // Set up capture buttons (still keep them for manual capture if needed)
+    if (entryCaptureBtn) {
+        entryCaptureBtn.addEventListener('click', function() {
+            captureImage(entryCameraView, entryCaptureCanvas, entryCapturePreview);
+            
+            // Auto-recognize after capture
+            setTimeout(() => {
+                const imgDataUrl = entryCapturePreview.src;
+                processLicensePlate(imgDataUrl, 'entry', true);
+            }, 500);
+        });
+    }
+    
+    if (exitCaptureBtn) {
+        exitCaptureBtn.addEventListener('click', function() {
+            captureImage(exitCameraView, exitCaptureCanvas, exitCapturePreview);
+            
+            // Auto-recognize after capture
+            setTimeout(() => {
+                const imgDataUrl = exitCapturePreview.src;
+                processLicensePlate(imgDataUrl, 'exit', true);
+            }, 500);
+        });
+    }
+    
+    // Auto detection functions
+    function startAutoDetection(type) {
+        if (type === 'entry') {
+            if (entryAutoDetectionActive) return;
+            
+            entryAutoDetectionActive = true;
+            entryAutoDetectionTimer = setInterval(() => {
+                if (entryProcessingInProgress) return;
+                
+                // Check cooldown
+                const now = Date.now();
+                if (now - entryLastDetectionTime < detectionCooldown) return;
+                
+                // Capture and process frame
+                captureImage(entryCameraView, entryCaptureCanvas, entryCapturePreview, false);
+                const imgDataUrl = entryCaptureCanvas.toDataURL('image/png');
+                processFrameForAutoDetection(imgDataUrl, 'entry');
+            }, 1000); // Check every second
+        } else if (type === 'exit') {
+            if (exitAutoDetectionActive) return;
+            
+            exitAutoDetectionActive = true;
+            exitAutoDetectionTimer = setInterval(() => {
+                if (exitProcessingInProgress) return;
+                
+                // Check cooldown
+                const now = Date.now();
+                if (now - exitLastDetectionTime < detectionCooldown) return;
+                
+                // Capture and process frame
+                captureImage(exitCameraView, exitCaptureCanvas, exitCapturePreview, false);
+                const imgDataUrl = exitCaptureCanvas.toDataURL('image/png');
+                processFrameForAutoDetection(imgDataUrl, 'exit');
+            }, 1000); // Check every second
+        }
+    }
+    
+    function stopAutoDetection(type) {
+        if (type === 'entry') {
+            entryAutoDetectionActive = false;
+            if (entryAutoDetectionTimer) {
+                clearInterval(entryAutoDetectionTimer);
+                entryAutoDetectionTimer = null;
+            }
+        } else if (type === 'exit') {
+            exitAutoDetectionActive = false;
+            if (exitAutoDetectionTimer) {
+                clearInterval(exitAutoDetectionTimer);
+                exitAutoDetectionTimer = null;
+            }
+        }
+    }
+    
+    function processFrameForAutoDetection(imageData, type) {
+        // Set flag to prevent multiple simultaneous processes
+        if (type === 'entry') {
+            entryProcessingInProgress = true;
+        } else {
+            exitProcessingInProgress = true;
+        }
+        
+        // First detect if there's a license plate in the image
+        const base64Data = imageData.split(',')[1];
+        const blob = b64toBlob(base64Data, 'image/png');
+        const formData = new FormData();
+        formData.append('image', blob);
+        
+        fetch('/detectar_matricula', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // If a license plate was successfully detected (not just falling back to the full image)
+            if (data.message && data.message.includes("Imagen recortada guardada")) {
+                // Update last detection time
+                if (type === 'entry') {
+                    entryLastDetectionTime = Date.now();
+                    
+                    // Display the captured image
+                    entryCapturePreview.src = 'data:image/jpeg;base64,' + data.image_data;
+                    entryCapturePreview.style.display = 'block';
+                } else {
+                    exitLastDetectionTime = Date.now();
+                    
+                    // Display the captured image
+                    exitCapturePreview.src = 'data:image/jpeg;base64,' + data.image_data;
+                    exitCapturePreview.style.display = 'block';
+                }
+                
+                // Process the license plate
+                processLicensePlate('data:image/jpeg;base64,' + data.image_data, type, true);
+                
+                // Play a sound to indicate detection
+                playDetectionSound();
+            }
+        })
+        .catch(error => {
+            console.error('Auto detection error:', error);
+        })
+        .finally(() => {
+            // Reset processing flag
+            if (type === 'entry') {
+                entryProcessingInProgress = false;
+            } else {
+                exitProcessingInProgress = false;
+            }
+        });
+    }
+    
+    function playDetectionSound() {
+        // Create and play a beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 830;
+        gainNode.gain.value = 0.1;
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.15);
+    }
+    
     tabs.forEach(tab => {
         tab.addEventListener('click', function(e) {
             e.preventDefault();
@@ -32,22 +303,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Set up event listeners
-    document.getElementById('recognizeEntryBtn').addEventListener('click', function() {
-        recognizePlate('entryImageInput', 'entry');
+    document.getElementById('recognizeEntryBtn')?.addEventListener('click', function() {
+        processLicensePlate(null, 'entry', false);
     });
     
-    document.getElementById('recognizeExitBtn').addEventListener('click', function() {
-        recognizePlate('exitImageInput', 'exit');
+    document.getElementById('recognizeExitBtn')?.addEventListener('click', function() {
+        processLicensePlate(null, 'exit', false);
     });
     
-    document.getElementById('processPaymentBtn').addEventListener('click', processPayment);
+    document.getElementById('processPaymentBtn')?.addEventListener('click', processPayment);
     
-    document.getElementById('configForm').addEventListener('submit', function(e) {
+    document.getElementById('configForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
         saveConfig();
     });
     
-    document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+    document.getElementById('applyFiltersBtn')?.addEventListener('click', function() {
         loadVehicles(1);
     });
     
@@ -58,35 +329,88 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(loadStatistics, 30000);
 });
 
-// Function to recognize license plate
-function recognizePlate(inputId, mode) {
-    const fileInput = document.getElementById(inputId);
-    const file = fileInput.files[0];
+// Camera functionality
+// Start camera function
+function startCamera(videoElement, callback) {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' }, // prefer rear camera if available
+            audio: false
+        })
+        .then(function(stream) {
+            videoElement.srcObject = stream;
+            if (callback) callback(stream);
+        })
+        .catch(function(error) {
+            console.error("Camera error:", error);
+            alert("No se pudo acceder a la cámara. Por favor, asegúrese de que tiene una cámara conectada y ha dado permisos.");
+        });
+    } else {
+        alert("Su navegador no soporta el acceso a la cámara");
+    }
+}
+
+// Stop camera function
+function stopCamera(stream) {
+    if (stream) {
+        stream.getTracks().forEach(track => {
+            track.stop();
+        });
+    }
+}
+
+// Capture image function
+function captureImage(videoElement, canvasElement, previewElement) {
+    // Set canvas dimensions to match video
+    canvasElement.width = videoElement.videoWidth;
+    canvasElement.height = videoElement.videoHeight;
     
-    if (!file) {
-        showAlert(mode === 'entry' ? 'entryResults' : 'exitResults', 'Por favor, selecciona una imagen', 'danger');
-        return;
+    // Draw video frame to canvas
+    const ctx = canvasElement.getContext('2d');
+    ctx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+    
+    // Get image data URL and display in preview
+    const imageDataURL = canvasElement.toDataURL('image/png');
+    previewElement.src = imageDataURL;
+    previewElement.style.display = 'block';
+}
+
+// Unified function to process license plate from any source (camera or file)
+function processLicensePlate(imageData, type, fromCamera = false) {
+    const resultsDiv = type === 'entry' ? document.getElementById('entryResults') : document.getElementById('exitResults');
+    resultsDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p>Procesando imagen...</p></div>';
+    
+    let formData = new FormData();
+    let fetchOptions = {};
+    
+    if (fromCamera) {
+        // Handle image from camera (base64)
+        const base64Data = imageData.split(',')[1];
+        const blob = b64toBlob(base64Data, 'image/png');
+        formData.append('image', blob);
+        fetchOptions = {
+            method: 'POST',
+            body: formData
+        };
+    } else {
+        // Handle image from file input
+        const fileInput = document.getElementById(type === 'entry' ? 'entryImageInput' : 'exitImageInput');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            showAlert(resultsDiv.id, 'Por favor, selecciona una imagen', 'danger');
+            return;
+        }
+        
+        formData.append('image', file);
+        fetchOptions = {
+            method: 'POST',
+            body: formData
+        };
     }
     
-    // Show loading
-    const resultsDiv = document.getElementById(mode === 'entry' ? 'entryResults' : 'exitResults');
-    resultsDiv.innerHTML = `
-        <div class="text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Procesando...</span>
-            </div>
-            <p class="mt-2">Procesando imagen...</p>
-        </div>
-    `;
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    
     // First detect the license plate
-    fetch('/detectar_matricula', {
-        method: 'POST',
-        body: formData
-    })
+    fetch('/detectar_matricula', fetchOptions)
     .then(response => {
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -98,10 +422,18 @@ function recognizePlate(inputId, mode) {
             throw new Error(data.error);
         }
         
-        // Usar la imagen base64 devuelta por detectar_matricula
+        // Check if a license plate was detected or not
+        const wasPlateDetected = data.message && data.message.includes("Imagen recortada guardada");
+        
+        if (!wasPlateDetected) {
+            // Add warning that plate wasn't detected automatically
+            console.warn("No se detectó matrícula automáticamente, intentando con la imagen completa");
+        }
+        
+        // Use the image data returned by detectar_matricula
         if (data.image_data) {
             // Now predict the characters and register using the detected plate image
-            return fetch(`/predict?register=${mode}`, {
+            return fetch(`/predict?register=${type}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -109,11 +441,8 @@ function recognizePlate(inputId, mode) {
                 body: JSON.stringify({ image_data: data.image_data })
             });
         } else {
-            // Fallback to the old method if image_data is not available
-            return fetch(`/predict?register=${mode}`, {
-                method: 'POST',
-                body: formData
-            });
+            // Fallback to the direct method if image_data is not available
+            return fetch(`/predict?register=${type}`, fetchOptions);
         }
     })
     .then(response => {
@@ -124,13 +453,14 @@ function recognizePlate(inputId, mode) {
     })
     .then(data => {
         if (data.error) {
-            showAlert(mode === 'entry' ? 'entryResults' : 'exitResults', data.error, 'danger');
+            showAlert(resultsDiv.id, data.error, 'danger');
             return;
         }
         
         let html = '';
         
         if (data.license_plate) {
+            // Display license plate
             html += `
                 <div class="text-center mb-3">
                     <h4>Matrícula detectada:</h4>
@@ -151,10 +481,9 @@ function recognizePlate(inputId, mode) {
                 });
                 html += '</div>';
             }
-        }
-        
-        if (mode === 'entry') {
-            if (data.entry_data) {
+            
+            // Entry or exit success data
+            if (type === 'entry' && data.entry_data) {
                 if (data.entry_data.error) {
                     html += `<div class="alert alert-danger">${data.entry_data.error}</div>`;
                 } else {
@@ -169,9 +498,7 @@ function recognizePlate(inputId, mode) {
                         </div>
                     `;
                 }
-            }
-        } else if (mode === 'exit') {
-            if (data.exit_data) {
+            } else if (type === 'exit' && data.exit_data) {
                 if (data.exit_data.error) {
                     html += `<div class="alert alert-danger">${data.exit_data.error}</div>`;
                 } else {
@@ -191,6 +518,8 @@ function recognizePlate(inputId, mode) {
                     `;
                 }
             }
+        } else {
+            html = `<div class="alert alert-warning">No se pudo detectar ninguna matrícula. Por favor, intenta con otra imagen o asegúrate que la matrícula sea visible.</div>`;
         }
         
         resultsDiv.innerHTML = html;
@@ -199,8 +528,27 @@ function recognizePlate(inputId, mode) {
         loadStatistics();
     })
     .catch(error => {
-        showAlert(mode === 'entry' ? 'entryResults' : 'exitResults', `Error: ${error.message}`, 'danger');
+        console.error('Error:', error);
+        resultsDiv.innerHTML = `<div class="alert alert-danger">Error al procesar la imagen: ${error.message}</div>`;
     });
+}
+
+// Helper function to convert base64 to blob
+function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
+    const byteCharacters = atob(b64Data);
+    const byteArrays = [];
+    
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+    }
+    
+    return new Blob(byteArrays, { type: contentType });
 }
 
 // Function to process payment

@@ -52,7 +52,27 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <div class="input-group">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="entryCameraToggle">
+                                    <label class="form-check-label" for="entryCameraToggle">Usar cámara</label>
+                                </div>
+                                
+                                <div class="camera-container" id="entryCameraContainer">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="entryAutoDetectionToggle">
+                                        <label class="form-check-label" for="entryAutoDetectionToggle">Detección automática</label>
+                                    </div>
+                                    <video id="entryCameraView" autoplay playsinline></video>
+                                    <div class="camera-controls">
+                                        <button class="btn btn-primary" id="entryCaptureBtn">
+                                            <i class="fas fa-camera me-1"></i> Capturar
+                                        </button>
+                                    </div>
+                                    <canvas id="entryCaptureCanvas" style="display:none;"></canvas>
+                                    <img id="entryCapturePreview" class="capture-preview" alt="Captura">
+                                </div>
+                                
+                                <div class="input-group" id="entryFileGroup">
                                     <input type="file" class="form-control" id="entryImageInput" accept="image/*">
                                     <button class="btn btn-primary" id="recognizeEntryBtn">
                                         <i class="fas fa-camera me-1"></i> Reconocer
@@ -71,7 +91,27 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <div class="input-group">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="exitCameraToggle">
+                                    <label class="form-check-label" for="exitCameraToggle">Usar cámara</label>
+                                </div>
+                                
+                                <div class="camera-container" id="exitCameraContainer">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="exitAutoDetectionToggle">
+                                        <label class="form-check-label" for="exitAutoDetectionToggle">Detección automática</label>
+                                    </div>
+                                    <video id="exitCameraView" autoplay playsinline></video>
+                                    <div class="camera-controls">
+                                        <button class="btn btn-danger" id="exitCaptureBtn">
+                                            <i class="fas fa-camera me-1"></i> Capturar
+                                        </button>
+                                    </div>
+                                    <canvas id="exitCaptureCanvas" style="display:none;"></canvas>
+                                    <img id="exitCapturePreview" class="capture-preview" alt="Captura">
+                                </div>
+                                
+                                <div class="input-group" id="exitFileGroup">
                                     <input type="file" class="form-control" id="exitImageInput" accept="image/*">
                                     <button class="btn btn-danger" id="recognizeExitBtn">
                                         <i class="fas fa-camera me-1"></i> Reconocer

@@ -13,80 +13,23 @@ def segmentar_matricula(image):
     new_height = int(new_width / aspect_ratio)
     resized_image = cv2.resize(image, (new_width, new_height))
 
-    if matricula_blava(image):
-        grayscale_image = cv2.bitwise_not(cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY))
-        resized_image = cv2.cvtColor(grayscale_image, cv2.COLOR_GRAY2BGR)
+    #if matricula_blava(resized_image):
+    #    grayscale_image = cv2.bitwise_not(cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY))
+    #    resized_image = cv2.cvtColor(grayscale_image, cv2.COLOR_GRAY2BGR)
 
     # Convert to grayscale
     grayscale_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
 
-    resized_image, grayscale_image = matricula_blava()
-
     # Apply Otsu's thresholding
     thresh = cv2.threshold(grayscale_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
-    # Perspective correction
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-    rect = cv2.minAreaRect(contours[0])
-    box = cv2.boxPoints(rect)
-    box = np.int32(box)
+    warped = corregir_perspectiva(thresh, resized_image)
 
-    def order_points(pts):
-        xSorted = pts[np.argsort(pts[:, 0]), :]
-        leftMost = xSorted[:2, :]
-        rightMost = xSorted[2:, :]
-        leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
-        (tl, bl) = leftMost
-        rightMost = rightMost[np.argsort(rightMost[:, 1]), :]
-        (tr, br) = rightMost
-        return np.array([tl, tr, br, bl], dtype="float32")
-
-    ordered_box = order_points(box)
-    width = int(np.max([
-        np.linalg.norm(ordered_box[0] - ordered_box[1]),
-        np.linalg.norm(ordered_box[2] - ordered_box[3])
-    ]))
-    height = int(np.max([
-        np.linalg.norm(ordered_box[0] - ordered_box[3]),
-        np.linalg.norm(ordered_box[1] - ordered_box[2])
-    ]))
-    dst = np.array([
-        [0, 0],
-        [width - 1, 0],
-        [width - 1, height - 1],
-        [0, height - 1]
-    ], dtype="float32")
-    M = cv2.getPerspectiveTransform(ordered_box, dst)
-    warped = cv2.warpPerspective(resized_image, M, (width, height))
-
-    # Bottom-Hat transformation
-    warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    bottomhat_kernel = np.ones((26, 20), np.uint8)
-    bottomhat = cv2.morphologyEx(warped_gray, cv2.MORPH_BLACKHAT, bottomhat_kernel)
-    _, bottomhat_thresh = cv2.threshold(bottomhat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # Apply erosion to the warped threshold image
-    erosion_kernel = np.ones((3, 3), np.uint8)
-    bottomhat_thresh = cv2.erode(bottomhat_thresh, erosion_kernel, iterations=1)
-    
-    # Use opening morphology to remove small noise
-    # Necessari en algunes imatges
-    opening_kernel = np.ones((2, 1), np.uint8)
-    bottomhat_thresh = cv2.morphologyEx(bottomhat_thresh, cv2.MORPH_OPEN, opening_kernel)
-
-    # Remove small noise points
-    contours_noise, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-   # Filtrar contornos pequeños que representan ruido
-    for contour in contours_noise:
-        area = cv2.contourArea(contour)
-        if 150 <= area <= 200:  # Ajustar el umbral para puntos medianos
-            # Noise removal
-            #bottomhat_thresh = eliminar_ruido(bottomhat_thresh)
-            pass
+    bottomhat_thresh = bottomhat(warped)
             
     # Save the bottomhat_thresh image for debugging purposes
     cv2.imwrite("bottomhat_thresh.jpg", bottomhat_thresh)
+    cv2.imshow("Bottom-Hat Threshold", bottomhat_thresh)
 
     # Character segmentation
     contours_cleaned, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -132,16 +75,73 @@ def matricula_blava(image):
     blue_percentage = (np.sum(blue_mask > 0) / blue_mask.size) * 100
 
     # Set a threshold to determine if the license plate is blue
-    is_blue_plate = blue_percentage > 20  # Adjust the threshold as needed
+    is_blue_plate = blue_percentage > 10  # Adjust the threshold as needed
 
     # Display the result
     print(f"Percentage of blue pixels: {blue_percentage:.2f}%")
     return is_blue_plate
 
-    # Invertir la escala de grises
-    if is_blue_plate:  # Variable que indica si la matrícula es azul
-        grayscale_image = cv2.bitwise_not(grayscale_image)
-        resized_image = cv2.cvtColor(grayscale_image, cv2.COLOR_GRAY2RGB)
+def corregir_perspectiva(thresh, resized_image):
+    # Perspective correction
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    rect = cv2.minAreaRect(contours[0])
+    box = cv2.boxPoints(rect)
+    box = np.int32(box)
+
+    def order_points(pts):
+        xSorted = pts[np.argsort(pts[:, 0]), :]
+        leftMost = xSorted[:2, :]
+        rightMost = xSorted[2:, :]
+        leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
+        (tl, bl) = leftMost
+        rightMost = rightMost[np.argsort(rightMost[:, 1]), :]
+        (tr, br) = rightMost
+        return np.array([tl, tr, br, bl], dtype="float32")
+
+    ordered_box = order_points(box)
+    width = int(np.max([
+        np.linalg.norm(ordered_box[0] - ordered_box[1]),
+        np.linalg.norm(ordered_box[2] - ordered_box[3])
+    ]))
+    height = int(np.max([
+        np.linalg.norm(ordered_box[0] - ordered_box[3]),
+        np.linalg.norm(ordered_box[1] - ordered_box[2])
+    ]))
+    dst = np.array([
+        [0, 0],
+        [width - 1, 0],
+        [width - 1, height - 1],
+        [0, height - 1]
+    ], dtype="float32")
+    M = cv2.getPerspectiveTransform(ordered_box, dst)
+    return cv2.warpPerspective(resized_image, M, (width, height))
+
+def bottomhat(warped):
+    # Bottom-Hat transformation
+    warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    bottomhat_kernel = np.ones((32, 32), np.uint8)
+    bottomhat = cv2.morphologyEx(warped_gray, cv2.MORPH_BLACKHAT, bottomhat_kernel)
+    _, bottomhat_thresh = cv2.threshold(bottomhat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Apply erosion to the warped threshold image
+    erosion_kernel = np.ones((3, 3), np.uint8)
+    bottomhat_thresh = cv2.erode(bottomhat_thresh, erosion_kernel, iterations=1)
+    
+    # Use opening morphology to remove small noise
+    #opening_kernel = np.ones((2, 1), np.uint8)
+    #bottomhat_thresh = cv2.morphologyEx(bottomhat_thresh, cv2.MORPH_OPEN, opening_kernel)
+
+    # Remove small noise points
+    contours_noise, _ = cv2.findContours(bottomhat_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Filtrar contornos pequeños que representan ruido
+    #for contour in contours_noise:
+        #area = cv2.contourArea(contour)
+        #if 150 <= area <= 200:  # Ajustar el umbral para puntos medianos
+            # Noise removal
+            #bottomhat_thresh = eliminar_ruido(bottomhat_thresh)
+    
+    return bottomhat_thresh
 
 def eliminar_ruido(bottomhat_thresh):
     erosion_kernel = np.ones((4, 3), np.uint8)
@@ -162,9 +162,10 @@ def eliminar_ruido(bottomhat_thresh):
 if __name__ == "__main__":
     # Example usage
     image_path = "flask/temp_matricula.jpg"
+    image_path = r"deteccio_matricula\recortes\recorte_1.jpg"
     image = cv2.imread(image_path)
     characters = segmentar_matricula(image)
-    for i, char in enumerate(characters):
-        cv2.imshow(f'Character {i+1}', char)
+    #for i, char in enumerate(characters):
+        #cv2.imshow(f'Character {i+1}', char)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

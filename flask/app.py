@@ -68,31 +68,49 @@ def detectar_matricula():
     file.save(image_path)
         
     try:
+        # Leer la imagen original para tenerla disponible
+        original_image = cv2.imread(image_path)
+        if original_image is None:
+            return jsonify({'error': 'No se pudo leer la imagen'}), 500
+            
         results = yolo.predict(source=image_path, conf=0.25, save=False)
-        for result in results:
-            for box in result.boxes:
-                # Obtener coordenadas del cuadro delimitador
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                # Leer la imagen original
-                original_image = cv2.imread(image_path)
-                # Recortar la región de interés (ROI)
-                cropped_image = original_image[y1:y2, x1:x2]
-                # Guardar la imagen recortada
-                cropped_image_path = os.path.join(os.path.dirname(__file__), 'temp_matricula.jpg')
-                cv2.imwrite(cropped_image_path, cropped_image)
-                
-                # Codificar la imagen recortada en base64 para devolverla en la respuesta
-                _, buffer = cv2.imencode('.jpg', cropped_image)
-                cropped_image_base64 = base64.b64encode(buffer).decode('utf-8')
-                
-                return jsonify({
-                    'message': 'Imagen recortada guardada',
-                    'path': cropped_image_path,
-                    'image_data': cropped_image_base64
-                })
         
-        # Si no se encontró ninguna matrícula
-        return jsonify({'error': 'No se detectó ninguna matrícula en la imagen'}), 404
+        for result in results:
+            if len(result.boxes) > 0:  # Si se detectó al menos una matrícula
+                for box in result.boxes:
+                    # Obtener coordenadas del cuadro delimitador
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    
+                    # Recortar la región de interés (ROI)
+                    cropped_image = original_image[y1:y2, x1:x2]
+                    # Guardar la imagen recortada
+                    cropped_image_path = os.path.join(os.path.dirname(__file__), 'temp_matricula.jpg')
+                    cv2.imwrite(cropped_image_path, cropped_image)
+                    
+                    # Codificar la imagen recortada en base64 para devolverla en la respuesta
+                    _, buffer = cv2.imencode('.jpg', cropped_image)
+                    cropped_image_base64 = base64.b64encode(buffer).decode('utf-8')
+                    
+                    return jsonify({
+                        'message': 'Imagen recortada guardada',
+                        'path': cropped_image_path,
+                        'image_data': cropped_image_base64
+                    })
+        
+        # Si no se encontró ninguna matrícula, enviar la imagen original para que el OCR intente procesarla directamente
+        # Codificar la imagen original en base64
+        _, buffer = cv2.imencode('.jpg', original_image)
+        original_image_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        # Guardar la imagen original como si fuera la recortada para mantener la consistencia del flujo
+        cropped_image_path = os.path.join(os.path.dirname(__file__), 'temp_matricula.jpg')
+        cv2.imwrite(cropped_image_path, original_image)
+        
+        return jsonify({
+            'message': 'No se detectó ninguna matrícula, usando imagen completa',
+            'path': cropped_image_path,
+            'image_data': original_image_base64
+        })
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -375,7 +393,7 @@ def get_vehicles():
     
     vehicles = list(vehicles_collection.find(filters)
                    .sort('entry_time', -1)
-                   .skip((page - 1) * per_page)
+                   .skip((page -1) * per_page)
                    .limit(per_page))
     
     # Convertir ObjectId a string y formatear fechas
@@ -395,4 +413,4 @@ def get_vehicles():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=True)

@@ -5,12 +5,22 @@ def segmentar_matricula(image):
     # Verificar que la imagen no sea None
     if image is None:
         raise ValueError("La imagen proporcionada es inválida o está vacía.")
+    
+    # Resize the image while maintaining the aspect ratio
+    height, width = image.shape[:2]
+    new_width = 800  # Desired width
+    aspect_ratio = width / height
+    new_height = int(new_width / aspect_ratio)
+    resized_image = cv2.resize(image, (new_width, new_height))
 
-    # Resize the image
-    resized_image = cv2.resize(image, (400, 100))
+    if matricula_blava(image):
+        grayscale_image = cv2.bitwise_not(cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY))
+        resized_image = cv2.cvtColor(grayscale_image, cv2.COLOR_GRAY2BGR)
 
     # Convert to grayscale
     grayscale_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
+
+    resized_image, grayscale_image = matricula_blava()
 
     # Apply Otsu's thresholding
     thresh = cv2.threshold(grayscale_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
@@ -52,9 +62,13 @@ def segmentar_matricula(image):
 
     # Bottom-Hat transformation
     warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    bottomhat_kernel = np.ones((20, 16), np.uint8)
+    bottomhat_kernel = np.ones((26, 20), np.uint8)
     bottomhat = cv2.morphologyEx(warped_gray, cv2.MORPH_BLACKHAT, bottomhat_kernel)
     _, bottomhat_thresh = cv2.threshold(bottomhat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Apply erosion to the warped threshold image
+    erosion_kernel = np.ones((3, 3), np.uint8)
+    bottomhat_thresh = cv2.erode(bottomhat_thresh, erosion_kernel, iterations=1)
     
     # Use opening morphology to remove small noise
     # Necessari en algunes imatges
@@ -102,6 +116,32 @@ def segmentar_matricula(image):
             character_images.append(char_roi)
 
     return character_images
+
+def matricula_blava(image):
+    # Convert the license plate image to HSV color space
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Define the range for blue color in HSV
+    lower_blue = np.array([100, 50, 50])  # Adjust these values as needed
+    upper_blue = np.array([140, 255, 255])
+
+    # Create a mask for blue regions
+    blue_mask = cv2.inRange(hsv_image, lower_blue, upper_blue)
+
+    # Calculate the percentage of blue pixels in the image
+    blue_percentage = (np.sum(blue_mask > 0) / blue_mask.size) * 100
+
+    # Set a threshold to determine if the license plate is blue
+    is_blue_plate = blue_percentage > 20  # Adjust the threshold as needed
+
+    # Display the result
+    print(f"Percentage of blue pixels: {blue_percentage:.2f}%")
+    return is_blue_plate
+
+    # Invertir la escala de grises
+    if is_blue_plate:  # Variable que indica si la matrícula es azul
+        grayscale_image = cv2.bitwise_not(grayscale_image)
+        resized_image = cv2.cvtColor(grayscale_image, cv2.COLOR_GRAY2RGB)
 
 def eliminar_ruido(bottomhat_thresh):
     erosion_kernel = np.ones((4, 3), np.uint8)

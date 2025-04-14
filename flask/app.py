@@ -8,13 +8,13 @@ from segmentacio.segmentacio import segmentar_matricula
 from ultralytics import YOLO
 from pymongo import MongoClient
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import json
 
 # MongoDB Connection
 client = MongoClient('mongodb://localhost:27017/')
-db = client.parking_system
+db = client.parking
 vehicles_collection = db.vehicles
 config_collection = db.config
 
@@ -22,7 +22,8 @@ config_collection = db.config
 if config_collection.count_documents({}) == 0:
     config_collection.insert_many([
         {'key': 'rate_per_hour', 'value': '2.50'},
-        {'key': 'max_capacity', 'value': '100'}
+        {'key': 'max_capacity', 'value': '100'},
+        {'key': 'exit_time_window', 'value': '15'}  # Tiempo en minutos para salir después del pago
     ])
 
 # Cargar el modelo
@@ -245,15 +246,58 @@ def register_exit(license_plate):
     if not vehicle:
         return {'error': 'No se encontró ningún vehículo con esta matrícula en el parking'}
     
+    # Verificar si el ticket ha sido pagado
+    if not vehicle['paid']:
+        return {'error': 'Este vehículo no puede salir. El ticket debe ser pagado primero.'}
+    
+    # Verificar el tiempo desde que se pagó el ticket
+    payment_time = vehicle.get('payment_time')
+    current_time = datetime.now()
+    exit_time_window = int(config_collection.find_one({'key': 'exit_time_window'})['value'])
+    
+    # Si ha pasado el límite de tiempo para salir después del pago
+    if payment_time and (current_time - payment_time).total_seconds() > (exit_time_window * 60):
+        # Crear un nuevo registro y mantener el vehículo en el parking
+        entry_time = current_time
+        ticket_id = str(uuid.uuid4())[:8]  # Nuevo ID de ticket
+        
+        # Insertar nuevo registro con la nueva entrada
+        vehicle_data = {
+            'license_plate': license_plate,
+            'entry_time': entry_time,
+            'ticket_id': ticket_id,
+            'paid': False,
+            'amount': None,
+            'exit_time': None
+        }
+        
+        vehicles_collection.insert_one(vehicle_data)
+        
+        # Marcar el ticket anterior como "salido" para mantener la consistencia
+        vehicles_collection.update_one(
+            {'_id': vehicle['_id']},
+            {'$set': {
+                'exit_time': current_time
+            }}
+        )
+        
+        return {
+            'error': 'Tiempo de salida excedido. Se ha generado un nuevo ticket.',
+            'new_ticket_id': ticket_id,
+            'license_plate': license_plate,
+            'entry_time': entry_time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+    
+    # Si está dentro del tiempo permitido, procesar la salida normal
     entry_time = vehicle['entry_time']
-    exit_time = datetime.now()
+    exit_time = current_time
     
     # Calcular duración y coste
     duration_seconds = (exit_time - entry_time).total_seconds()
     duration_hours = duration_seconds / 3600
     
     rate_per_hour = float(config_collection.find_one({'key': 'rate_per_hour'})['value'])
-    amount = rate_per_hour * duration_hours
+    amount = vehicle.get('amount') or (rate_per_hour * duration_hours)
     
     # Actualizar registro
     vehicles_collection.update_one(
@@ -271,8 +315,7 @@ def register_exit(license_plate):
         'exit_time': exit_time.strftime('%Y-%m-%d %H:%M:%S'),
         'duration_hours': round(duration_hours, 2),
         'amount': round(amount, 2),
-        'ticket_id': vehicle['ticket_id'],
-        'status': 'Pendiente de pago'
+        'ticket_id': vehicle['ticket_id']
     }
 
 @app.route('/payment', methods=['POST'])
@@ -283,10 +326,10 @@ def payment():
     ticket_id = request.json['ticket_id']
     
     # Buscar el ticket
-    vehicle = vehicles_collection.find_one({'ticket_id': ticket_id, 'exit_time': {'$ne': None}})
+    vehicle = vehicles_collection.find_one({'ticket_id': ticket_id})
     
     if not vehicle:
-        return jsonify({'error': 'Ticket no encontrado o vehículo aún en parking'}), 404
+        return jsonify({'error': 'Ticket no encontrado'}), 404
     
     if vehicle['paid']:
         return jsonify({
@@ -294,17 +337,42 @@ def payment():
             'license_plate': vehicle['license_plate']
         })
     
+    # Actualizar campos adicionales a la hora de pagar
+    # Calcular duración y coste actual
+    current_time = datetime.now()
+    entry_time = vehicle['entry_time']
+    
+    # Calcular duración y coste solo si es necesario (si el vehículo sigue en el parking)
+    if vehicle['exit_time'] is None:
+        duration_seconds = (current_time - entry_time).total_seconds()
+        duration_hours = duration_seconds / 3600
+        rate_per_hour = float(config_collection.find_one({'key': 'rate_per_hour'})['value'])
+        amount = rate_per_hour * duration_hours
+    else:
+        # Si ya salió y se está pagando después, usar el importe ya calculado
+        amount = vehicle['amount']
+    
     # Procesar el pago
     vehicles_collection.update_one(
         {'_id': vehicle['_id']},
-        {'$set': {'paid': True}}
+        {'$set': {
+            'paid': True,
+            'payment_time': current_time,
+            'amount': round(amount, 2) if vehicle['amount'] is None else vehicle['amount']
+        }}
     )
+    
+    # Obtener tiempo límite para salir
+    exit_time_window = int(config_collection.find_one({'key': 'exit_time_window'})['value'])
+    exit_limit_time = (current_time + timedelta(minutes=exit_time_window)).strftime('%Y-%m-%d %H:%M:%S')
     
     return jsonify({
         'message': 'Pago procesado correctamente',
         'license_plate': vehicle['license_plate'],
-        'amount_paid': vehicle['amount'],
-        'ticket_id': ticket_id
+        'amount_paid': round(amount, 2) if vehicle['amount'] is None else vehicle['amount'],
+        'ticket_id': ticket_id,
+        'exit_limit_time': exit_limit_time,
+        'exit_time_window': exit_time_window
     })
 
 @app.route('/verify_ticket/<ticket_id>', methods=['GET'])

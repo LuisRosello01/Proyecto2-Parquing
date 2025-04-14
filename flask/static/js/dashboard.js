@@ -512,7 +512,6 @@ function processLicensePlate(imageData, type, fromCamera = false) {
                                 <p><strong>Hora de salida:</strong> ${data.exit_data.exit_time}</p>
                                 <p><strong>Duración:</strong> ${data.exit_data.duration_hours.toFixed(2)} horas</p>
                                 <p><strong>Importe:</strong> ${data.exit_data.amount.toFixed(2)} €</p>
-                                <p><strong>Estado:</strong> <span class="badge bg-warning text-dark">Pendiente de pago</span></p>
                             </div>
                         </div>
                     `;
@@ -595,6 +594,12 @@ function processPayment() {
                 <p><strong>Matrícula:</strong> ${data.license_plate}</p>
                 <p><strong>Importe:</strong> ${data.amount_paid ? data.amount_paid.toFixed(2) + ' €' : 'N/A'}</p>
                 <p><strong>Ticket:</strong> ${data.ticket_id}</p>
+                <hr>
+                <div class="time-warning">
+                    <i class="fas fa-clock me-1"></i>
+                    <span>Dispone de <strong>${data.exit_time_window} minutos</strong> para salir del parking.</span>
+                    <p class="small mb-0">Tiempo límite: ${data.exit_limit_time}</p>
+                </div>
             </div>
         `;
         

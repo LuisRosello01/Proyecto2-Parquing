@@ -597,7 +597,7 @@ function processPayment() {
                 <hr>
                 <div class="time-warning">
                     <i class="fas fa-clock me-1"></i>
-                    <span>Dispone de <strong>${data.exit_time_window} minutos</strong> para salir del parking.</span>
+                    <span>Dispone de <strong>${data.exit_time_window} minutos</strong> para salir del parquing.</span>
                     <p class="small mb-0">Tiempo límite: ${data.exit_limit_time}</p>
                 </div>
             </div>
@@ -736,7 +736,7 @@ function loadVehicles(page = 1) {
         
         data.vehicles.forEach(vehicle => {
             // Calculate duration if exit_time exists
-            let durationText = 'En parking';
+            let durationText = 'En parquing';
             if (vehicle.exit_time) {
                 // Calculate hours between entry_time and exit_time
                 const entryTime = new Date(vehicle.entry_time);
@@ -748,7 +748,7 @@ function loadVehicles(page = 1) {
             // Status badge
             let statusBadge = '';
             if (vehicle.exit_time === null) {
-                statusBadge = '<span class="badge bg-info">En parking</span>';
+                statusBadge = '<span class="badge bg-info">En parquing</span>';
             } else if (vehicle.paid) {
                 statusBadge = '<span class="badge bg-success">Pagado</span>';
             } else {
@@ -855,7 +855,7 @@ function verifyTicket(ticketId) {
         let statusClass, statusText;
         if (data.exit_time === null) {
             statusClass = 'bg-info';
-            statusText = 'En parking';
+            statusText = 'En parquing';
         } else if (data.paid) {
             statusClass = 'bg-success';
             statusText = 'Pagado';
@@ -884,7 +884,7 @@ function verifyTicket(ticketId) {
                             </div>
                             <div class="row mb-2">
                                 <div class="col-6"><strong>Salida:</strong></div>
-                                <div class="col-6">${data.exit_time || 'En parking'}</div>
+                                <div class="col-6">${data.exit_time || 'En parquing'}</div>
                             </div>
                             ${data.amount ? `
                             <div class="row mb-2">
